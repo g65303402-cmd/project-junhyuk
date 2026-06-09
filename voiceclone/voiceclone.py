@@ -1,15 +1,31 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from qwen_tts import Qwen3TTSModel, VoiceClonePromptItem
+from dotenv import load_dotenv
 import torch
 import soundfile as sf
+import os
+import uuid
+from contextlib import asynccontextmanager
+
+load_dotenv()
+
+app = FastAPI(lifespan=lifespan)
 
 # 모델 & 프롬프트 전역으로 한 번만 로드
 model = None
 prompt = None
 
+# 요청 스키마
+class TTSRequest(BaseModel):
+    text: str
+    output_path: str = None
+
+
 def load_model(
-    model_path: str = "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
-    ref_audio: str = None,
-    ref_text: str = None
+    model_path: str = os.getenv("MODEL_PATH", "Qwen/Qwen3-TTS-12Hz-1.7B-Base"),
+    ref_audio: str = os.getenv("REF_AUDIO_PATH"),
+    ref_text: str = os.getenv("REF_TEXT")
 ):
     """모델과 참조 오디오를 한 번만 로드"""
     global model, prompt
@@ -28,15 +44,20 @@ def load_model(
     print("모델 로드 완료!")
 
 
-def generate_tts(test_text: str, output_path: str) -> str:
+def generate_tts(text: str, output_path: str = None) -> str:
     """텍스트를 음성으로 변환 후 저장"""
     global model, prompt
 
     if model is None:
-        raise RuntimeError("모델이 로드되지 않았습니다. load_model()을 먼저 실행하세요.")
+        raise RuntimeError("모델이 로드되지 않았습니다.")
+
+    # output_path 없으면 랜덤 파일명 생성
+    if output_path is None:
+        os.makedirs("./outputs", exist_ok=True)
+        output_path = f"./outputs/{uuid.uuid4()}.wav"
 
     wavs, sample_rate = model.generate_voice_clone(
-        text=test_text,
+        text=text,
         voice_clone_prompt=prompt
     )
 
@@ -45,15 +66,32 @@ def generate_tts(test_text: str, output_path: str) -> str:
     return output_path
 
 
-# 실행
-if __name__ == "__main__":
-    load_model(
-        model_path="Qwen/Qwen3-TTS-12Hz-1.7B-Base",
-        ref_audio="/smhrd2/Hyunjin Team/Hahyun/project2/voiceclone/새로운-녹음.wav",
-        ref_text="그랬구나. 많이 힘들었겠다. 아침마다 몸이 먼저 반응할만큼 지쳐있는 거잖아. 요즘 뭐가 제일 버거워?"
-    )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 서버 시작할 때
+    load_model()
+    yield
+    # 서버 종료할 때 (필요하면 정리 코드 추가)
 
-    generate_tts(
-        test_text= "그 스트레스 진짜 크겠다. 성적 자체보다 그 시선이 자꾸 나를 감시하는 것처럼 느껴지니까 더 지치는 거잖아. 그게 얼마나 오랫동안 이어져왔는지 궁금해." ,
-        output_path="/smhrd2/Hyunjin Team/Hahyun/project2/voiceclone/output.wav"
-    )
+
+# TTS 엔드포인트
+@app.post("/tts")
+async def tts_endpoint(request: TTSRequest):
+    try:
+        output_path = generate_tts(
+            text=request.text,
+            output_path=request.output_path
+        )
+        return {"output_path": output_path, "status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# 서버 상태 확인
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "model_loaded": model is not None}
+
+
+# # 서버 실행
+# uvicorn voiceclone:app --host 0.0.0.0 --port 8000

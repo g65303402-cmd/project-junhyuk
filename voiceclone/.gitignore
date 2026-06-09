@@ -7,3 +7,4 @@ __pycache__/
 *.bin
 /Qwen3-TTS-12Hz-1.7B-Base/   # 다운로드한 모델 폴더 제외
 /Qwen3-TTS-Tokenizer-12Hz/
+/Qwen3-TTS/

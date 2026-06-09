@@ -103,6 +103,7 @@ dependencies:
       - pydub==0.25.1
       - pygments==2.20.0
       - python-dateutil==2.9.0.post0
+      - python-dotenv==1.2.2
       - python-multipart==0.0.32
       - pytz==2026.2
       - pyyaml==6.0.3
