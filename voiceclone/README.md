@@ -1,8 +1,8 @@
 ## 설치 방법
 
 ### 1. 가상환경 생성
-conda env create -f environment.yml  <br>
-conda activate {파이썬버전 3.10.20 미니콘다 가상환경 이름}
+conda env create -f voiceclone/environment.yml  <br>
+conda activate qwen-tts
 
 ### 2. 라이브러리 설치
 pip install -r requirements.txt
