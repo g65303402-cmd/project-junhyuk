@@ -1,0 +1,9 @@
+# .gitignore
+.env
+__pycache__/
+*.pyc
+*.wav          # 오디오 파일 제외
+*.pt           # 모델 가중치 제외
+*.bin
+/Qwen3-TTS-12Hz-1.7B-Base/   # 다운로드한 모델 폴더 제외
+/Qwen3-TTS-Tokenizer-12Hz/
