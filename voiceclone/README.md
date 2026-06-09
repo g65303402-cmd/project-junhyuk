@@ -12,10 +12,3 @@ pip install -r voiceclone/requirements.txt
 hf download Qwen/Qwen3-TTS-Tokenizer-12Hz --local-dir ./Qwen3-TTS-Tokenizer-12Hz  <br>
 hf download Qwen/Qwen3-TTS-12Hz-1.7B-Base --local-dir ./Qwen3-TTS-12Hz-1.7B-Base
 
-## Qwen3-TTS 소스 설치
-git clone https://github.com/QwenLM/Qwen3-TTS.git <br>
-cd Qwen3-TTS  <br>
-pip install -e .
-
-### 4. 실행
-python tts.py
