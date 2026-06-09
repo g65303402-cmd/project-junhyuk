@@ -12,3 +12,11 @@ pip install -r voiceclone/requirements.txt
 hf download Qwen/Qwen3-TTS-Tokenizer-12Hz --local-dir ./Qwen3-TTS-Tokenizer-12Hz  <br>
 hf download Qwen/Qwen3-TTS-12Hz-1.7B-Base --local-dir ./Qwen3-TTS-12Hz-1.7B-Base
 
+
+
+# # **실행 순서**
+# # 터미널 1: TTS 서버 먼저 띄우기
+# /root/miniconda3/envs/qwen-tts/bin/python voiceclone/tts_server.py
+
+# # 터미널 2: 메인 서버 실행
+# python api_server.py
