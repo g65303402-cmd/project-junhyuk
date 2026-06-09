@@ -10,6 +10,13 @@ from contextlib import asynccontextmanager
 
 load_dotenv()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 서버 시작할 때
+    load_model()
+    yield
+    # 서버 종료할 때 (필요하면 정리 코드 추가)
+
 app = FastAPI(lifespan=lifespan)
 
 # 모델 & 프롬프트 전역으로 한 번만 로드
@@ -66,12 +73,7 @@ def generate_tts(text: str, output_path: str = None) -> str:
     return output_path
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 서버 시작할 때
-    load_model()
-    yield
-    # 서버 종료할 때 (필요하면 정리 코드 추가)
+
 
 
 # TTS 엔드포인트
