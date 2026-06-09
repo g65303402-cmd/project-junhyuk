@@ -134,7 +134,13 @@ def postprocess_message(text: str) -> str:
         "쉽게 흐르는 게 아니잖아":         "충분히 그럴 수 있어",
         "쉽게 흘러가지 않는":              "그게 쉽지 않았겠다",
         "달갑다는 걸":                     "힘들었겠다",
+        ", 네.":                           ".",
+        ", 네 ":                           " ",
     }
+    # 존댓말 후처리
+    HONORIFIC_ENDINGS = ["습니다", "니다", "세요", "어요", "아요", "네요", "드릴게요"]
+    for ending in HONORIFIC_ENDINGS:
+        text = text.replace(ending, "")
     for awkward, replacement in AWKWARD_REPLACEMENTS.items():
         if awkward in text:
             text = text.replace(awkward, replacement)

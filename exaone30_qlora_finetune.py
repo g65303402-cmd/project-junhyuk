@@ -16,7 +16,7 @@ from datasets import Dataset as HFDataset
 # ────────────────────────────────────────────────────────────
 MODEL_NAME     = "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct"
 DATASET_DIR    = "./dataset_new"
-TRAIN_PATH     = f"{DATASET_DIR}/train_aihub.json"   # 981개
+TRAIN_PATH     = f"{DATASET_DIR}/train_final.json"   # 981개
 VAL_PATH       = f"{DATASET_DIR}/val.json"
 OUTPUT_DIR     = "./output/exaone30-junhyuk-final"
 MAX_SEQ_LENGTH = 2048
