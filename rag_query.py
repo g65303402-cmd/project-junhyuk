@@ -30,7 +30,7 @@ def get_rag_context(user_message: str, n_results: int = 3) -> str:
             headers={"Content-Type": "application/json"},
             method="POST"
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             return result.get("context", "")
 
@@ -46,7 +46,7 @@ def warmup():
             "http://127.0.0.1:5002/health",
             method="GET"
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             logger.info("[RAG] 서버 연결 확인 완료")
     except Exception as e:
         logger.warning("[RAG] 서버 연결 실패: %s", e)

@@ -19,6 +19,9 @@ nohup env PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python /opt/conda/bin/uvicorn a
 MAIN_PID=$!
 echo "메인 서버 PID: $MAIN_PID"
 
+sleep 60
+curl -s -X POST http://localhost:5002/rag -H "Content-Type: application/json" -d '{"message": "워밍업"}' > /dev/null
+echo "RAG 서버 워밍업 완료"
 echo "모든 서버 시작 완료!"
 echo "TTS 서버 로그:  tail -f tts_server.log"
 echo "RAG 서버 로그:  tail -f rag_server.log"
