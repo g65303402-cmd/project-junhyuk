@@ -3,6 +3,13 @@
 실행: uvicorn api_server:app --host 0.0.0.0 --port 8000
 """
 
+from __future__ import annotations
+
+import logging
+import os
+from typing import Optional
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 import httpx
@@ -11,13 +18,40 @@ from pydantic import BaseModel
 import torch, re, json
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 # ================================
-# 설정
+# 설정 (환경변수)
 # ================================
-MODEL_NAME = "./output/exaone30-junhyuk-final"
-BASE_MODEL  = "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct"
-MAX_NEW_TOKENS = 350
+MODEL_NAME = os.getenv("MODEL_NAME", "./output/exaone30-junhyuk-final")
+BASE_MODEL = os.getenv("BASE_MODEL", "LGAI-EXAONE/EXAONE-3.0-7.8B-Instruct")
+MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "350"))
+TTS_BASE_URL = os.getenv("TTS_BASE_URL", "http://127.0.0.1:5001").rstrip("/")
+TTS_ENDPOINT = f"{TTS_BASE_URL}/tts"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+_default_origins = (
+    "http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:3000,http://127.0.0.1:3000"
+)
+_allowed = os.getenv("ALLOWED_ORIGINS", _default_origins).strip()
+ALLOWED_ORIGINS = [o.strip() for o in _allowed.split(",") if o.strip()]
+
+MODEL_MAX_MEMORY_GPU = os.getenv("MODEL_MAX_MEMORY_GPU", "").strip()
+MODEL_MAX_MEMORY_CPU = os.getenv("MODEL_MAX_MEMORY_CPU", "").strip()
+MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() in ("1", "true", "yes")
+
+tokenizer = None
+model = None
+_model_loaded = False
+
+BRIDGE_TEXT = (
+    "나한테 털어놓는 것도 좋은데, 이 정도면 준혁쌤이랑 직접 얘기해보는 것도 좋을 것 같아. "
+    "부담 없이 한번 연결해볼까?"
+)
 
 # ================================
 # 시스템 프롬프트
@@ -181,30 +215,94 @@ def assign_emotion(user_input: str) -> str:
     return "neutral"
 
 # ================================
-# 모델 로드 (서버 시작 시 1회)
+# mock 응답 (MOCK_MODE=true)
 # ================================
-print("모델 로딩 중...")
-from peft import PeftModel
-from transformers import BitsAndBytesConfig
+def _needs_bridge(user_input: str) -> bool:
+    crisis = ["자해", "자살", "죽고 싶", "사라지고 싶", "없어지고 싶", "살기 싫"]
+    solution = ["어떻게 해야", "어쩌지", "방법 알려"]
+    return any(k in user_input for k in crisis + solution)
 
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16,
-    bnb_4bit_use_double_quant=True,
-)
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
-base_model = AutoModelForCausalLM.from_pretrained(
-    BASE_MODEL,
-    quantization_config=bnb_config,
-    device_map="auto",
-    trust_remote_code=True,
-    torch_dtype=torch.bfloat16,
-    max_memory={0: "35GiB", "cpu": "10GiB"},
-)
-model = PeftModel.from_pretrained(base_model, MODEL_NAME)
-model.eval()
-print("모델 로딩 완료")
+
+def _generate_mock_response(user_input: str) -> str:
+    text = user_input.strip()
+    if _needs_bridge(text):
+        if any(k in text for k in ["죽", "자해", "자살", "사라", "없어", "살기 싫"]):
+            empathy = "지금 네가 얼마나 버거운지 느껴져."
+        else:
+            empathy = "혼자 어떻게 해야 할지 막막한 마음이 드는 거잖아."
+        return f"많이 힘들었겠다.\n{empathy}\n{BRIDGE_TEXT}"
+
+    if any(k in text for k in ["회사", "출근", "일", "아침"]):
+        return (
+            "그게 쉽지 않았겠다.\n"
+            "아침마다 몸이 먼저 반응할 만큼 지쳐있는 거잖아.\n"
+            "요즘 뭐가 제일 버거워?"
+        )
+    if any(k in text for k in ["친구", "상처", "화"]):
+        return (
+            "충분히 그럴 수 있어.\n"
+            "친한 사람한테 상처받으면 그 말이 더 오래 남잖아.\n"
+            "어떤 말이 제일 마음에 걸렸어?"
+        )
+    if any(k in text for k in ["취업", "진로", "면접", "뒤처"]):
+        return (
+            "그 마음 이해해.\n"
+            "열심히 해도 결과가 안 나오면 주변만 커 보이고 내가 작아지는 느낌이 들잖아.\n"
+            "지금 가장 막막하게 느껴지는 게 뭐야?"
+        )
+    if any(k in text for k in ["가족", "부모", "싸웠", "싸움"]):
+        return (
+            "그랬구나.\n"
+            "가까운 사람이랑 부딪히면 내 감정까지 헷갈리게 되는 거잖아.\n"
+            "어떤 말이 제일 오래 남았어?"
+        )
+    return (
+        "그게 쉽지 않았겠다.\n"
+        "지금 그 상황이 계속 마음을 누르고 있는 거잖아.\n"
+        "요즘 제일 버거운 게 뭐야?"
+    )
+
+
+def _ensure_model_loaded() -> None:
+    global tokenizer, model, _model_loaded
+
+    if MOCK_MODE:
+        return
+    if _model_loaded and tokenizer is not None and model is not None:
+        return
+
+    logger.info("EXAONE 모델 로딩 중...")
+    from peft import PeftModel
+    from transformers import BitsAndBytesConfig
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+    )
+    model_load_kwargs: dict = {
+        "quantization_config": bnb_config,
+        "device_map": "auto",
+        "trust_remote_code": True,
+        "torch_dtype": torch.bfloat16,
+    }
+    if MODEL_MAX_MEMORY_GPU and MODEL_MAX_MEMORY_CPU:
+        model_load_kwargs["max_memory"] = {0: MODEL_MAX_MEMORY_GPU, "cpu": MODEL_MAX_MEMORY_CPU}
+        logger.info(
+            "Using max_memory GPU=%s CPU=%s (GPU server mode)",
+            MODEL_MAX_MEMORY_GPU,
+            MODEL_MAX_MEMORY_CPU,
+        )
+    else:
+        logger.info("Using device_map=auto without max_memory (local default)")
+
+    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
+    base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, **model_load_kwargs)
+    model = PeftModel.from_pretrained(base_model, MODEL_NAME)
+    model.eval()
+    _model_loaded = True
+    logger.info("EXAONE 모델 로딩 완료")
 
 # ================================
 # FastAPI 앱
@@ -213,7 +311,7 @@ app = FastAPI(title="박준혁 AI 상담사 API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -226,6 +324,14 @@ class ChatResponse(BaseModel):
     emotion: str
 
 def generate_response(user_input: str) -> dict:
+    if MOCK_MODE:
+        message = _generate_mock_response(user_input)
+        return {
+            "message": message,
+            "emotion": assign_emotion(user_input),
+        }
+
+    _ensure_model_loaded()
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user",   "content": user_input},
@@ -256,6 +362,20 @@ def generate_response(user_input: str) -> dict:
 def root():
     return {"status": "ok", "model": MODEL_NAME}
 
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "device": DEVICE,
+        "cuda_available": torch.cuda.is_available(),
+        "model_name": MODEL_NAME,
+        "base_model": BASE_MODEL,
+        "tts_base_url": TTS_BASE_URL,
+        "mock_mode": MOCK_MODE,
+        "model_loaded": _model_loaded,
+    }
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
     if not req.message.strip():
@@ -266,25 +386,31 @@ def chat(req: ChatRequest):
 class ApiChatResponse(BaseModel):
     message: str
     emotion: str
-    audioUrl: str = None
+    audioUrl: Optional[str] = None
 
 @app.post("/api/chat", response_model=ApiChatResponse)
 def api_chat(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="message가 비어있어")
     result = generate_response(req.message)
+    audio_url = None
     try:
-        tts_response = httpx.post("http://localhost:5001/tts", json={
-            "text": result["message"],
-            "output": "voiceclone/output.wav"
-        }, timeout=30)
+        tts_response = httpx.post(
+            TTS_ENDPOINT,
+            json={
+                "text": result["message"],
+                "output": "voiceclone/output.wav",
+            },
+            timeout=30,
+        )
+        tts_response.raise_for_status()
         audio_url = "/api/tts/audio/output.wav"
-    except Exception:
-        audio_url = None
+    except Exception as exc:
+        logger.warning("TTS request failed (%s): %s", TTS_ENDPOINT, exc)
     return {
         "message": result["message"],
         "emotion": result["emotion"],
-        "audioUrl": audio_url
+        "audioUrl": audio_url,
     }
 
 @app.get("/api/tts/audio/{filename}")

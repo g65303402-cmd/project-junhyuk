@@ -7,3 +7,5 @@ fastapi
 uvicorn
 accelerate
 datasets
+httpx
+python-dotenv
