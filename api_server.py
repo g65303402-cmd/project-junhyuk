@@ -4,9 +4,10 @@
 """
 
 from __future__ import annotations
+import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 import logging
-import os
 from typing import Optional
 
 from dotenv import load_dotenv

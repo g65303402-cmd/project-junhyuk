@@ -15,7 +15,7 @@ echo "서버 로딩 대기 중 (30초)..."
 sleep 30
 
 echo "메인 서버 시작 중..."
-nohup /opt/conda/bin/uvicorn api_server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+nohup env PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python /opt/conda/bin/uvicorn api_server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
 MAIN_PID=$!
 echo "메인 서버 PID: $MAIN_PID"
 
