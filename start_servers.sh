@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "TTS 서버 시작 중..."
+cd "/smhrd2/Hyunjin Team/Hyunjin/project"
+nohup /root/miniforge3/envs/qwen-tts/bin/python voiceclone/tts_server.py > tts_server.log 2>&1 &
+TTS_PID=$!
+echo "TTS 서버 PID: $TTS_PID"
+
+echo "TTS 서버 로딩 대기 중 (30초)..."
+sleep 30
+
+echo "메인 서버 시작 중..."
+nohup /opt/conda/bin/uvicorn api_server:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+MAIN_PID=$!
+echo "메인 서버 PID: $MAIN_PID"
+
+echo "모든 서버 시작 완료!"
+echo "TTS 서버 로그: tail -f tts_server.log"
+echo "메인 서버 로그: tail -f server.log"

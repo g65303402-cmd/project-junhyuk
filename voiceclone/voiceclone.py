@@ -10,7 +10,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def load_model(
-    model_path: str = "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    model_path: str = os.path.join(BASE_DIR, "Qwen3-TTS-12Hz-1.7B-Base"),
     ref_audio: str = os.path.join(BASE_DIR, "새로운-녹음.wav"),
     ref_text: str = "그랬구나. 많이 힘들었겠다. 아침마다 몸이 먼저 반응할만큼 지쳐있는 거잖아. 요즘 뭐가 제일 버거워?"
 ):

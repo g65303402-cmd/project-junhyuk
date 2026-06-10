@@ -4,6 +4,8 @@
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import torch, re, json
@@ -260,3 +262,32 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=400, detail="message가 비어있어")
     result = generate_response(req.message)
     return result
+
+class ApiChatResponse(BaseModel):
+    message: str
+    emotion: str
+    audioUrl: str = None
+
+@app.post("/api/chat", response_model=ApiChatResponse)
+def api_chat(req: ChatRequest):
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail="message가 비어있어")
+    result = generate_response(req.message)
+    try:
+        tts_response = httpx.post("http://localhost:5001/tts", json={
+            "text": result["message"],
+            "output": "voiceclone/output.wav"
+        }, timeout=30)
+        audio_url = "/api/tts/audio/output.wav"
+    except Exception:
+        audio_url = None
+    return {
+        "message": result["message"],
+        "emotion": result["emotion"],
+        "audioUrl": audio_url
+    }
+
+@app.get("/api/tts/audio/{filename}")
+def get_audio(filename: str):
+    path = f"voiceclone/{filename}"
+    return FileResponse(path, media_type="audio/wav")
