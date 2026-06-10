@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 *.log
 .ipynb_checkpoints/
+voiceclone/Qwen3-TTS-12Hz-1.7B-Base/
+voiceclone/Qwen3-TTS-Tokenizer-12Hz/
+voiceclone/output.wav
