@@ -29,3 +29,6 @@ voiceclone/**/*.safetensors
 voiceclone/**/*.bin
 voiceclone/**/*.ckpt
 *.cursor-bak
+idle asset/
+chroma_db/
+*.log
