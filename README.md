@@ -7,29 +7,39 @@
 - **최적 체크포인트**: checkpoint-244 (loss 0.3047)
 - **생성 파라미터**: temperature 0.7 / repetition_penalty 1.15 / max_new_tokens 350
 
+## RAG
+- **벡터DB**: ChromaDB (PersistentClient)
+- **임베딩 모델**: snunlp/KR-SBERT-V40K-klueNLI-augSTS
+- **데이터**: train_final.json 981개 대화 쌍 임베딩
+- **방식**: 사용자 발화와 유사한 대화 예시 3개를 검색해 system prompt에 few-shot으로 주입
+- **실행**: `rag_server.py` (포트 5002, `/usr/bin/python3`)
+- **초기 빌드**: `python3 rag_builder.py` (최초 1회 실행)
+
 ## TTS
 - **모델**: Qwen3-TTS-12Hz-1.7B-Base
 - **방식**: 보이스클로닝 (박준혁 페르소나 목소리)
 - **실행**: `voiceclone/tts_server.py` (포트 5001)
 
 ## 서버 실행
-
 **한번에 실행 (권장)**
 ```
 bash start_servers.sh
 ```
+실행 순서: TTS 서버(5001) → RAG 서버(5002) → 메인 서버(8000) → RAG 워밍업
 
 **개별 실행**
 ```
 # TTS 서버 먼저
 /root/miniforge3/envs/qwen-tts/bin/python voiceclone/tts_server.py
 
+# RAG 서버
+/usr/bin/python3 rag_server.py
+
 # 메인 서버
 /opt/conda/bin/uvicorn api_server:app --host 0.0.0.0 --port 8000
 ```
 
 ## API 사용법
-
 ### 텍스트만 (기본)
 ```
 POST /chat
@@ -69,17 +79,21 @@ GET /api/tts/audio/output.wav
 ## 파일 구조
 ```
 project/
-├── api_server.py          # 메인 API 서버 (포트 8000)
-├── start_servers.sh       # 서버 한번에 실행 스크립트
+├── api_server.py               # 메인 API 서버 (포트 8000)
+├── rag_server.py               # RAG 검색 서버 (포트 5002)
+├── rag_query.py                # RAG 클라이언트 모듈
+├── rag_builder.py              # ChromaDB 임베딩 빌더 (최초 1회 실행)
+├── start_servers.sh            # 서버 한번에 실행 스크립트
 ├── exaone30_qlora_finetune.py  # 파인튜닝 코드
 ├── prompt_test_exaone_new.py   # 모델 테스트 코드
-├── aihub_pipeline.py      # 데이터 파이프라인
-├── dataset_new/           # 학습 데이터셋
-│   ├── train_final.json   # 최종 학습 데이터 (981개)
-│   ├── val.json           # 검증 데이터
-│   └── test.json          # 테스트 데이터
-└── voiceclone/            # TTS 보이스클로닝
-    ├── tts_server.py      # TTS 서버 (포트 5001)
-    ├── voiceclone.py      # TTS 모델 로드/생성
-    └── README.md          # TTS 설치 방법
+├── aihub_pipeline.py           # 데이터 파이프라인
+├── chroma_db/                  # ChromaDB 벡터 저장소
+├── dataset_new/                # 학습 데이터셋
+│   ├── train_final.json        # 최종 학습 데이터 (981개)
+│   ├── val.json                # 검증 데이터
+│   └── test.json               # 테스트 데이터
+└── voiceclone/                 # TTS 보이스클로닝
+    ├── tts_server.py           # TTS 서버 (포트 5001)
+    ├── voiceclone.py           # TTS 모델 로드/생성
+    └── README.md               # TTS 설치 방법
 ```
